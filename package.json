@@ -10,8 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "api": "json-server api/db.json --port 4000",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "copy-api": "node -e \"require('fs').cpSync('api', 'public/api', {recursive: true})\"",
+    "predeploy": "npm run copy-api && npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",
