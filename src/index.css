@@ -1,0 +1,49 @@
+@import '../node_modules/mini.css/dist/mini-default.min.css';
+
+form {
+  min-width: 300px;
+}
+
+
+html,
+body,
+#root,
+.container,
+.center-page {
+  height: 100%;
+}
+
+.center-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+header {
+  height: 5.1875rem;
+}
+
+a.button.active {
+  border: 1px solid var(--fore-color);
+}
+ 
+/* add these below existing styles */
+
+.fade-enter {
+  opacity: 0;
+  z-index: 1;
+}
+
+.container {
+  height: 100%;
+}
+
+.fade-enter.fade-enter-active {
+  opacity: 1;
+  transition: opacity 400ms ease-in;
+}
+
+.fade-exit.fade-exit-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
