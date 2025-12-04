@@ -6,12 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run copy-api && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "api": "json-server api/db.json --port 4000",
-    "copy-api": "node -e \"require('fs').cpSync('api', 'public/api', {recursive: true})\"",
-    "predeploy": "npm run copy-api && npm run build",
+    "copy-api": "node -e \"const fs=require('fs');fs.mkdirSync('public/api',{recursive:true});fs.copyFileSync('api/db.json','public/api/db.json');\"",
+    "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {

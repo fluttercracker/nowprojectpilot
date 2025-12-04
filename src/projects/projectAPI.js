@@ -1,7 +1,8 @@
 import { Project } from './project';
 
 const isDev = import.meta.env.DEV;
-const baseUrl = isDev ? 'http://localhost:4000' : './api';
+const apiBaseUrl = isDev ? 'http://localhost:4000' : `${import.meta.env.BASE_URL}api`;
+const assetBaseUrl = import.meta.env.BASE_URL || '/';
 
 function translateStatusToErrorMessage(status) {
   switch (status) {
@@ -25,7 +26,7 @@ function checkStatus(response) {
     };
     console.log(`log server http error: ${JSON.stringify(httpErrorInfo)}`);
 
-    let errorMessage = translateStatusToErrorMessage(httpErrorInfo.status);
+    const errorMessage = translateStatusToErrorMessage(httpErrorInfo.status);
     throw new Error(errorMessage);
   }
 }
@@ -40,87 +41,97 @@ function delay(ms) {
   };
 }
 
+function resolveAssetUrl(path) {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith(import.meta.env.BASE_URL)) return path;
+  const normalized = path.replace(/^\/+/, '');
+  return `${assetBaseUrl}${normalized}`;
+}
 
+function mapProject(project) {
+  return new Project({
+    ...project,
+    imageUrl: resolveAssetUrl(project.imageUrl),
+  });
+}
+
+function fetchStaticProjects() {
+  return fetch(`${apiBaseUrl}/db.json`)
+    .then(checkStatus)
+    .then(parseJSON)
+    .then((data) => data?.projects ?? []);
+}
 
 const projectAPI = {
   find(id) {
     if (isDev) {
-      return fetch(`${baseUrl}/projects/${id}`)
+      return fetch(`${apiBaseUrl}/projects/${id}`)
         .then(checkStatus)
         .then(parseJSON)
-        .then(p => new Project(p));
-    } else {
-      return fetch(`${baseUrl}/db.json`)
-        .then(checkStatus)
-        .then(parseJSON)
-        .then(data => {
-          const project = data.projects.find(p => p.id === parseInt(id));
-          if (!project) throw new Error('Project not found');
-          return new Project(project);
-        });
+        .then(mapProject);
     }
+
+    return fetchStaticProjects()
+      .then((projects) => {
+        const project = projects.find((p) => p.id === Number(id));
+        if (!project) throw new Error('Project not found');
+        return mapProject(project);
+      })
+      .catch((error) => {
+        console.log('log client error ' + error);
+        throw new Error('There was an error retrieving the project. Please try again.');
+      });
   },
 
   get(page = 1, limit = 10) {
     if (isDev) {
-      return fetch(`${baseUrl}/projects?_page=${page}&_limit=${limit}&_sort=name`)
+      return fetch(`${apiBaseUrl}/projects?_page=${page}&_limit=${limit}&_sort=name`)
         .then(delay(2000))
         .then(checkStatus)
         .then(parseJSON)
-        .then((projects) => {
-          return projects.map((p) => {
-            return new Project(p);
-          });
-        })
+        .then((projects) => projects.map(mapProject))
         .catch((error) => {
           console.log('log client error ' + error);
-          throw new Error(
-            'There was an error retrieving the projects. Please try again.'
-          );
-        });
-    } else {
-      return fetch(`${baseUrl}/db.json`)
-        .then(checkStatus)
-        .then(parseJSON)
-        .then(data => {
-          const projects = data.projects
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .slice((page - 1) * limit, page * limit);
-          return projects.map((p) => new Project(p));
-        })
-        .catch((error) => {
-          console.log('log client error ' + error);
-          throw new Error(
-            'There was an error retrieving the projects. Please try again.'
-          );
+          throw new Error('There was an error retrieving the projects. Please try again.');
         });
     }
-  },
 
+    return fetchStaticProjects()
+      .then((projects) => {
+        return projects
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .slice((page - 1) * limit, page * limit)
+          .map(mapProject);
+      })
+      .catch((error) => {
+        console.log('log client error ' + error);
+        throw new Error('There was an error retrieving the projects. Please try again.');
+      });
+  },
 
   put(project) {
     if (isDev) {
-      return fetch(`${baseUrl}/projects/${project.id}`, {
+      return fetch(`${apiBaseUrl}/projects/${project.id}`, {
         method: 'PUT',
         body: JSON.stringify(project),
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       })
         .then(delay(2000))
         .then(checkStatus)
         .then(parseJSON)
+        .then(mapProject)
         .catch((error) => {
           console.log('log client error ' + error);
-          throw new Error(
-            'There was an error updating the project. Please try again.'
-          );
+          throw new Error('There was an error updating the project. Please try again.');
         });
-    } else {
-      // In production, just return the project as-is since we can't update a static JSON file
-      console.warn('PUT operations are not supported in production mode');
-      return Promise.resolve(project);
     }
+
+    console.warn('PUT operations are not supported in production mode');
+    return Promise.resolve(project);
   },
 };
 
